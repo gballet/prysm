@@ -1,11 +1,8 @@
 package powchain
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"fmt"
-	"math/big"
 	"strings"
 	"sync"
 	"testing"
@@ -77,43 +74,6 @@ func (g *goodNotifier) StateFeed() *event.Feed {
 }
 
 type goodFetcher struct {
-	backend *backends.SimulatedBackend
-}
-
-func (g *goodFetcher) HeaderByHash(_ context.Context, hash common.Hash) (*gethTypes.Header, error) {
-	if bytes.Equal(hash.Bytes(), common.BytesToHash([]byte{0}).Bytes()) {
-		return nil, fmt.Errorf("expected block hash to be nonzero %v", hash)
-	}
-	if g.backend == nil {
-		return &gethTypes.Header{
-			Number: big.NewInt(0),
-		}, nil
-	}
-	header := g.backend.Blockchain().GetHeaderByHash(hash)
-	if header == nil {
-		return nil, errors.New("nil header returned")
-	}
-	return header, nil
-
-}
-
-func (g *goodFetcher) HeaderByNumber(_ context.Context, number *big.Int) (*gethTypes.Header, error) {
-	if g.backend == nil {
-		return &gethTypes.Header{
-			Number: big.NewInt(15),
-			Time:   150,
-		}, nil
-	}
-	var header *gethTypes.Header
-	if number == nil {
-		header = g.backend.Blockchain().CurrentHeader()
-	} else {
-		header = g.backend.Blockchain().GetHeaderByNumber(number.Uint64())
-	}
-	if header == nil {
-		return nil, errors.New("nil header returned")
-	}
-	return header, nil
 }
 
 func (_ *goodFetcher) SyncProgress(_ context.Context) (*ethereum.SyncProgress, error) {
@@ -281,7 +241,7 @@ func TestService_Eth1Synced(t *testing.T) {
 	web3Service = setDefaultMocks(web3Service)
 	web3Service.depositContractCaller, err = contracts.NewDepositContractCaller(testAcc.ContractAddr, testAcc.Backend)
 	require.NoError(t, err)
-	web3Service.eth1DataFetcher = &goodFetcher{backend: testAcc.Backend}
+	web3Service.rpcClient = &mockPOW.RPCClient{Backend: testAcc.Backend}
 
 	currTime := testAcc.Backend.Blockchain().CurrentHeader().Time
 	now := time.Now()
@@ -312,7 +272,6 @@ func TestFollowBlock_OK(t *testing.T) {
 	params.OverrideBeaconConfig(conf)
 
 	web3Service = setDefaultMocks(web3Service)
-	web3Service.eth1DataFetcher = &goodFetcher{backend: testAcc.Backend}
 	baseHeight := testAcc.Backend.Blockchain().CurrentBlock().NumberU64()
 	// process follow_distance blocks
 	for i := 0; i < int(params.BeaconConfig().Eth1FollowDistance); i++ {
@@ -412,7 +371,6 @@ func TestLogTillGenesis_OK(t *testing.T) {
 	require.NoError(t, err)
 
 	web3Service.rpcClient = &mockPOW.RPCClient{Backend: testAcc.Backend}
-	web3Service.eth1DataFetcher = &goodFetcher{backend: testAcc.Backend}
 	web3Service.httpLogger = testAcc.Backend
 	for i := 0; i < 30; i++ {
 		testAcc.Backend.Commit()
@@ -542,7 +500,6 @@ func TestNewService_EarliestVotingBlock(t *testing.T) {
 		WithDatabase(beaconDB),
 	)
 	require.NoError(t, err, "unable to setup web3 ETH1.0 chain service")
-	web3Service.eth1DataFetcher = &goodFetcher{backend: testAcc.Backend}
 	// simulated backend sets eth1 block
 	// time as 10 seconds
 	params.SetupTestConfigCleanup(t)

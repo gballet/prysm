@@ -198,3 +198,15 @@ func (b *BeaconChainConfig) InitializeForkSchedule() {
 	// Set Bellatrix fork data.
 	b.ForkVersionSchedule[bytesutil.ToBytes4(b.BellatrixForkVersion)] = b.BellatrixForkEpoch
 }
+
+func (b *BeaconChainConfig) Eth1DataVotesLength() uint64 {
+	return uint64(b.EpochsPerEth1VotingPeriod.Mul(uint64(b.SlotsPerEpoch)))
+}
+
+func (b *BeaconChainConfig) PreviousEpochAttestationsLength() uint64 {
+	return uint64(b.SlotsPerEpoch.Mul(b.MaxAttestations))
+}
+
+func (b *BeaconChainConfig) CurrentEpochAttestationsLength() uint64 {
+	return uint64(b.SlotsPerEpoch.Mul(b.MaxAttestations))
+}
