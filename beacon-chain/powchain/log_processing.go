@@ -17,6 +17,7 @@ import (
 	statefeed "github.com/prysmaticlabs/prysm/beacon-chain/core/feed/state"
 	"github.com/prysmaticlabs/prysm/beacon-chain/core/helpers"
 	coreState "github.com/prysmaticlabs/prysm/beacon-chain/core/transition"
+	"github.com/prysmaticlabs/prysm/beacon-chain/powchain/types"
 	state_native "github.com/prysmaticlabs/prysm/beacon-chain/state/state-native"
 	v1 "github.com/prysmaticlabs/prysm/beacon-chain/state/v1"
 	"github.com/prysmaticlabs/prysm/config/features"
@@ -286,7 +287,7 @@ func (s *Service) processPastLogs(ctx context.Context) error {
 		currentBlockNum = deploymentBlock
 	}
 	// To store all blocks.
-	headersMap := make(map[uint64]*gethTypes.Header)
+	headersMap := make(map[uint64]*types.Header)
 	rawLogCount, err := s.depositContractCaller.GetDepositCount(&bind.CallOpts{})
 	if err != nil {
 		return err
@@ -481,11 +482,11 @@ func (s *Service) processChainStartFromBlockNum(ctx context.Context, blkNum *big
 	return nil
 }
 
-func (s *Service) processChainStartFromHeader(ctx context.Context, header *gethTypes.Header) {
+func (s *Service) processChainStartFromHeader(ctx context.Context, header *types.Header) {
 	s.processChainStartIfReady(ctx, header.Hash(), header.Number, header.Time)
 }
 
-func (s *Service) checkHeaderRange(ctx context.Context, start, end uint64, headersMap map[uint64]*gethTypes.Header,
+func (s *Service) checkHeaderRange(ctx context.Context, start, end uint64, headersMap map[uint64]*types.Header,
 	requestHeaders func(uint64, uint64) error) error {
 	for i := start; i <= end; i++ {
 		if !s.chainStartData.Chainstarted {
