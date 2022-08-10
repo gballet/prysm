@@ -304,7 +304,7 @@ func (b *BeaconState) rootSelector(ctx context.Context, field types.FieldIndex) 
 			err := b.resetFieldTrie(
 				field,
 				b.state.Eth1DataVotes,
-				fieldparams.Eth1DataVotesLength,
+				params.BeaconConfig().Eth1DataVotesLength(),
 			)
 			if err != nil {
 				return [32]byte{}, err
@@ -353,7 +353,7 @@ func (b *BeaconState) rootSelector(ctx context.Context, field types.FieldIndex) 
 			err := b.resetFieldTrie(
 				field,
 				b.state.PreviousEpochAttestations,
-				fieldparams.PreviousEpochAttestationsLength,
+				params.BeaconConfig().PreviousEpochAttestationsLength(),
 			)
 			if err != nil {
 				return [32]byte{}, err
@@ -367,7 +367,7 @@ func (b *BeaconState) rootSelector(ctx context.Context, field types.FieldIndex) 
 			err := b.resetFieldTrie(
 				field,
 				b.state.CurrentEpochAttestations,
-				fieldparams.CurrentEpochAttestationsLength,
+				params.BeaconConfig().CurrentEpochAttestationsLength(),
 			)
 			if err != nil {
 				return [32]byte{}, err
