@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/prysm/v3/beacon-chain/execution/types"
 	"github.com/prysmaticlabs/prysm/v3/config/params"
-	"github.com/prysmaticlabs/prysm/v3/monitoring/tracing"
 	"go.opencensus.io/trace"
 )
 
@@ -35,7 +34,7 @@ func (s *Service) BlockExists(ctx context.Context, hash common.Hash) (bool, *big
 		return true, hdrInfo.Number, nil
 	}
 	span.AddAttributes(trace.BoolAttribute("blockCacheHit", false))
-	header, err := s.eth1DataFetcher.HeaderByHash(ctx, hash)
+	header, err := s.HeaderByHash(ctx, hash)
 	if err != nil {
 		return false, big.NewInt(0), errors.Wrap(err, "could not query block with given hash")
 	}
@@ -61,13 +60,7 @@ func (s *Service) BlockHashByHeight(ctx context.Context, height *big.Int) (commo
 	}
 	span.AddAttributes(trace.BoolAttribute("headerCacheHit", false))
 
-	if s.eth1DataFetcher == nil {
-		err := errors.New("nil eth1DataFetcher")
-		tracing.AnnotateError(span, err)
-		return [32]byte{}, err
-	}
-
-	header, err := s.eth1DataFetcher.HeaderByNumber(ctx, height)
+	header, err := s.HeaderByNumber(ctx, height)
 	if err != nil {
 		return [32]byte{}, errors.Wrap(err, fmt.Sprintf("could not query header with height %d", height.Uint64()))
 	}
@@ -81,13 +74,8 @@ func (s *Service) BlockHashByHeight(ctx context.Context, height *big.Int) (commo
 func (s *Service) BlockTimeByHeight(ctx context.Context, height *big.Int) (uint64, error) {
 	ctx, span := trace.StartSpan(ctx, "powchain.BlockTimeByHeight")
 	defer span.End()
-	if s.eth1DataFetcher == nil {
-		err := errors.New("nil eth1DataFetcher")
-		tracing.AnnotateError(span, err)
-		return 0, err
-	}
 
-	header, err := s.eth1DataFetcher.HeaderByNumber(ctx, height)
+	header, err := s.HeaderByNumber(ctx, height)
 	if err != nil {
 		return 0, errors.Wrap(err, fmt.Sprintf("could not query block with height %d", height.Uint64()))
 	}
@@ -207,7 +195,7 @@ func (s *Service) retrieveHeaderInfo(ctx context.Context, bNum uint64) (*types.H
 		return nil, err
 	}
 	if !exists {
-		blk, err := s.eth1DataFetcher.HeaderByNumber(ctx, bn)
+		blk, err := s.HeaderByNumber(ctx, bn)
 		if err != nil {
 			return nil, err
 		}

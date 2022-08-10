@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -248,6 +249,41 @@ func (s *Service) Start() {
 	go s.run(s.ctx.Done())
 }
 
+func toBlockNumArg(number *big.Int) string {
+	if number == nil {
+		return "latest"
+	}
+	pending := big.NewInt(-1)
+	if number.Cmp(pending) == 0 {
+		return "pending"
+	}
+	return hexutil.EncodeBig(number)
+}
+
+func (s *Service) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
+	if s.rpcClient == nil {
+		return nil, errors.New("nil rpcClient")
+	}
+	var head *types.Header
+	err := s.rpcClient.CallContext(ctx, &head, "eth_getBlockByNumber", toBlockNumArg(number), false)
+	if err == nil && head == nil {
+		err = ethereum.NotFound
+	}
+	return head, err
+}
+
+func (s *Service) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+	if s.rpcClient == nil {
+		return nil, errors.New("nil rpcClient")
+	}
+	var head *types.Header
+	err := s.rpcClient.CallContext(ctx, &head, "eth_getBlockByHash", hash, false)
+	if err == nil && head == nil {
+		err = ethereum.NotFound
+	}
+	return head, err
+}
+
 // Stop the web3 service's main event loop and associated goroutines.
 func (s *Service) Stop() error {
 	if s.cancel != nil {
@@ -399,7 +435,7 @@ func (s *Service) initDepositCaches(ctx context.Context, ctrs []*ethpb.DepositCo
 
 // processBlockHeader adds a newly observed eth1 block to the block cache and
 // updates the latest blockHeight, blockHash, and blockTime properties of the service.
-func (s *Service) processBlockHeader(header *gethTypes.Header) {
+func (s *Service) processBlockHeader(header *types.Header) {
 	defer safelyHandlePanic()
 	blockNumberGauge.Set(float64(header.Number.Int64()))
 	s.latestEth1DataLock.Lock()
@@ -416,19 +452,19 @@ func (s *Service) processBlockHeader(header *gethTypes.Header) {
 
 // batchRequestHeaders requests the block range specified in the arguments. Instead of requesting
 // each block in one call, it batches all requests into a single rpc call.
-func (s *Service) batchRequestHeaders(startBlock, endBlock uint64) ([]*gethTypes.Header, error) {
+func (s *Service) batchRequestHeaders(startBlock, endBlock uint64) ([]*types.Header, error) {
 	if startBlock > endBlock {
 		return nil, fmt.Errorf("start block height %d cannot be > end block height %d", startBlock, endBlock)
 	}
 	requestRange := (endBlock - startBlock) + 1
 	elems := make([]gethRPC.BatchElem, 0, requestRange)
-	headers := make([]*gethTypes.Header, 0, requestRange)
+	headers := make([]*types.Header, 0, requestRange)
 	errs := make([]error, 0, requestRange)
 	if requestRange == 0 {
 		return headers, nil
 	}
 	for i := startBlock; i <= endBlock; i++ {
-		header := &gethTypes.Header{}
+		header := &types.Header{}
 		err := error(nil)
 		elems = append(elems, gethRPC.BatchElem{
 			Method: "eth_getBlockByNumber",
@@ -524,7 +560,7 @@ func (s *Service) initPOWService() {
 			return
 		default:
 			ctx := s.ctx
-			header, err := s.eth1DataFetcher.HeaderByNumber(ctx, nil)
+			header, err := s.HeaderByNumber(ctx, nil)
 			if err != nil {
 				s.retryExecutionClientConnection(ctx, err)
 				errorLogger(err, "Unable to retrieve latest execution client header")
@@ -563,7 +599,7 @@ func (s *Service) initPOWService() {
 				// In the event our provided chainstart data references a non-existent block hash,
 				// we assume the genesis block to be 0.
 				if genHash != [32]byte{} {
-					genHeader, err := s.eth1DataFetcher.HeaderByHash(ctx, genHash)
+					genHeader, err := s.HeaderByHash(ctx, genHash)
 					if err != nil {
 						s.retryExecutionClientConnection(ctx, err)
 						errorLogger(err, "Unable to retrieve proof-of-stake genesis block data")
@@ -602,7 +638,7 @@ func (s *Service) run(done <-chan struct{}) {
 			log.Debug("Context closed, exiting goroutine")
 			return
 		case <-s.eth1HeadTicker.C:
-			head, err := s.eth1DataFetcher.HeaderByNumber(s.ctx, nil)
+			head, err := s.HeaderByNumber(s.ctx, nil)
 			if err != nil {
 				s.pollConnectionStatus(s.ctx)
 				log.WithError(err).Debug("Could not fetch latest eth1 header")
@@ -675,7 +711,7 @@ func (s *Service) cacheBlockHeaders(start, end uint64) error {
 	batchSize := s.cfg.eth1HeaderReqLimit
 	for i := start; i < end; i += batchSize {
 		startReq := i
-		endReq := i + batchSize
+		endReq := i + batchSize - 1
 		if endReq > end {
 			endReq = end
 		}
