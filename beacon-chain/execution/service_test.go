@@ -229,7 +229,7 @@ func TestService_Eth1Synced(t *testing.T) {
 	web3Service = setDefaultMocks(web3Service)
 	web3Service.depositContractCaller, err = contracts.NewDepositContractCaller(testAcc.ContractAddr, testAcc.Backend)
 	require.NoError(t, err)
-	web3Service.rpcClient = &mockPOW.RPCClient{Backend: testAcc.Backend}
+	web3Service.rpcClient = &mockExecution.RPCClient{Backend: testAcc.Backend}
 
 	currTime := testAcc.Backend.Blockchain().CurrentHeader().Time
 	now := time.Now()

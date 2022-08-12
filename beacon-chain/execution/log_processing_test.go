@@ -308,7 +308,7 @@ func TestProcessETH2GenesisLog(t *testing.T) {
 	require.NoError(t, err, "unable to setup web3 ETH1.0 chain service")
 	web3Service = setDefaultMocks(web3Service)
 	web3Service.depositContractCaller, err = contracts.NewDepositContractCaller(testAcc.ContractAddr, testAcc.Backend)
-	web3Service.rpcClient = &mockPOW.RPCClient{Backend: testAcc.Backend}
+	web3Service.rpcClient = &mockExecution.RPCClient{Backend: testAcc.Backend}
 	require.NoError(t, err)
 	params.SetupTestConfigCleanup(t)
 	bConfig := params.MinimalSpecConfig().Copy()

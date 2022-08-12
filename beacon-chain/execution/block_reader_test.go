@@ -87,7 +87,7 @@ func TestBlockHashByHeight_ReturnsHash(t *testing.T) {
 	require.NoError(t, err, "unable to setup web3 ETH1.0 chain service")
 
 	web3Service = setDefaultMocks(web3Service)
-	web3Service.rpcClient = &mockPOW.RPCClient{Backend: testAcc.Backend}
+	web3Service.rpcClient = &mockExecution.RPCClient{Backend: testAcc.Backend}
 	ctx := context.Background()
 
 	header := testAcc.Backend.Blockchain().Genesis()
@@ -140,7 +140,7 @@ func TestBlockExists_ValidHash(t *testing.T) {
 	require.NoError(t, err, "unable to setup web3 ETH1.0 chain service")
 
 	web3Service = setDefaultMocks(web3Service)
-	web3Service.rpcClient = &mockPOW.RPCClient{Backend: testAcc.Backend}
+	web3Service.rpcClient = &mockExecution.RPCClient{Backend: testAcc.Backend}
 
 	block := testAcc.Backend.Blockchain().Genesis()
 
@@ -217,7 +217,7 @@ func TestService_BlockNumberByTimestamp(t *testing.T) {
 	)
 	require.NoError(t, err)
 	web3Service = setDefaultMocks(web3Service)
-	web3Service.rpcClient = &mockPOW.RPCClient{Backend: testAcc.Backend}
+	web3Service.rpcClient = &mockExecution.RPCClient{Backend: testAcc.Backend}
 
 	for i := 0; i < 200; i++ {
 		testAcc.Backend.Commit()
@@ -249,7 +249,7 @@ func TestService_BlockNumberByTimestampLessTargetTime(t *testing.T) {
 	)
 	require.NoError(t, err)
 	web3Service = setDefaultMocks(web3Service)
-	web3Service.rpcClient = &mockPOW.RPCClient{Backend: testAcc.Backend}
+	web3Service.rpcClient = &mockExecution.RPCClient{Backend: testAcc.Backend}
 
 	for i := 0; i < 200; i++ {
 		testAcc.Backend.Commit()
@@ -287,7 +287,7 @@ func TestService_BlockNumberByTimestampMoreTargetTime(t *testing.T) {
 	)
 	require.NoError(t, err)
 	web3Service = setDefaultMocks(web3Service)
-	web3Service.rpcClient = &mockPOW.RPCClient{Backend: testAcc.Backend}
+	web3Service.rpcClient = &mockExecution.RPCClient{Backend: testAcc.Backend}
 
 	for i := 0; i < 200; i++ {
 		testAcc.Backend.Commit()
