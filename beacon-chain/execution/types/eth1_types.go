@@ -27,8 +27,8 @@ type Header struct {
 	GasUsed     uint64               `json:"gasUsed"          gencodec:"required"`
 	Time        uint64               `json:"timestamp"        gencodec:"required"`
 	Extra       []byte               `json:"extraData"        gencodec:"required"`
-	MixDigest   common.Hash          `json:"mixHash"`
-	Nonce       gethTypes.BlockNonce `json:"nonce"`
+	MixDigest   common.Hash          `json:"mixHash,omitempty"`
+	Nonce       gethTypes.BlockNonce `json:"nonce,omitempty"`
 	Step        *big.Int             `json:"step,omitempty"             rlp:"-"`
 	Signature   []byte               `json:"signature,omitempty"        rlp:"-"`
 
