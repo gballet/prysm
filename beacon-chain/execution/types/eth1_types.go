@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/prysmaticlabs/prysm/encoding/bytesutil"
 )
@@ -175,6 +176,19 @@ func (i *OptQuoteBigInt) UnmarshalJSON(input []byte) error {
 		return (*big.Int)(i).UnmarshalJSON(input[1 : len(input)-1])
 	}
 	return (*big.Int)(i).UnmarshalJSON(input)
+}
+
+// rlpHash encodes x and hashes the encoded bytes.
+func rlpHash(x interface{}) (h common.Hash) {
+	sha, _ok := hasherPool.Get().(crypto.KeccakState)
+	_ = _ok
+	defer hasherPool.Put(sha)
+	sha.Reset()
+	_err := rlp.Encode(sha, x)
+	_ = _err
+	_, _err = sha.Read(h[:])
+	_ = _err
+	return h
 }
 
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
