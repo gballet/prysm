@@ -7,7 +7,7 @@ go_library(
        "hashing.go",
        "gen_header_json.go",
     ],
-    importpath = "github.com/prysmaticlabs/prysm/beacon-chain/execution/types",
+    importpath = "github.com/prysmaticlabs/prysm/v3/beacon-chain/execution/types",
     visibility = ["//beacon-chain:__subpackages__"],
     deps = [
         "//encoding/bytesutil:go_default_library",
