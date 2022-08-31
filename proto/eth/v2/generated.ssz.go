@@ -3,6 +3,8 @@
 package eth
 
 import (
+	"fmt"
+
 	ssz "github.com/prysmaticlabs/fastssz"
 	github_com_prysmaticlabs_prysm_consensus_types_primitives "github.com/prysmaticlabs/prysm/consensus-types/primitives"
 	v11 "github.com/prysmaticlabs/prysm/proto/engine/v1"
@@ -54,7 +56,7 @@ func (s *SignedBeaconBlockBellatrix) UnmarshalSSZ(buf []byte) error {
 
 	// Offset (0) 'Message'
 	if o0 = ssz.ReadOffset(buf[0:4]); o0 > size {
-		return ssz.ErrOffset
+		return fmt.Errorf("offset 0 %w", ssz.ErrOffset)
 	}
 
 	if o0 < 100 {
@@ -74,7 +76,7 @@ func (s *SignedBeaconBlockBellatrix) UnmarshalSSZ(buf []byte) error {
 			s.Message = new(BeaconBlockBellatrix)
 		}
 		if err = s.Message.UnmarshalSSZ(buf); err != nil {
-			return err
+			return fmt.Errorf("error unmarshalling message: %w", err)
 		}
 	}
 	return err
@@ -424,7 +426,7 @@ func (b *BeaconBlockBellatrix) UnmarshalSSZ(buf []byte) error {
 
 	// Offset (4) 'Body'
 	if o4 = ssz.ReadOffset(buf[80:84]); o4 > size {
-		return ssz.ErrOffset
+		return fmt.Errorf("read body offset %w", ssz.ErrOffset)
 	}
 
 	if o4 < 84 {
@@ -973,7 +975,7 @@ func (b *BeaconBlockBodyBellatrix) UnmarshalSSZ(buf []byte) error {
 		b.Eth1Data = new(v1.Eth1Data)
 	}
 	if err = b.Eth1Data.UnmarshalSSZ(buf[96:168]); err != nil {
-		return err
+		return fmt.Errorf("errror unmarshalling eth1 data %w", err)
 	}
 
 	// Field (2) 'Graffiti'
@@ -984,7 +986,7 @@ func (b *BeaconBlockBodyBellatrix) UnmarshalSSZ(buf []byte) error {
 
 	// Offset (3) 'ProposerSlashings'
 	if o3 = ssz.ReadOffset(buf[200:204]); o3 > size {
-		return ssz.ErrOffset
+		return fmt.Errorf("slashings %w", ssz.ErrOffset)
 	}
 
 	if o3 < 384 {
@@ -993,22 +995,22 @@ func (b *BeaconBlockBodyBellatrix) UnmarshalSSZ(buf []byte) error {
 
 	// Offset (4) 'AttesterSlashings'
 	if o4 = ssz.ReadOffset(buf[204:208]); o4 > size || o3 > o4 {
-		return ssz.ErrOffset
+		return fmt.Errorf("attester slashings %w", ssz.ErrOffset)
 	}
 
 	// Offset (5) 'Attestations'
 	if o5 = ssz.ReadOffset(buf[208:212]); o5 > size || o4 > o5 {
-		return ssz.ErrOffset
+		return fmt.Errorf("attestations %w", ssz.ErrOffset)
 	}
 
 	// Offset (6) 'Deposits'
 	if o6 = ssz.ReadOffset(buf[212:216]); o6 > size || o5 > o6 {
-		return ssz.ErrOffset
+		return fmt.Errorf("attestations %w", ssz.ErrOffset)
 	}
 
 	// Offset (7) 'VoluntaryExits'
 	if o7 = ssz.ReadOffset(buf[216:220]); o7 > size || o6 > o7 {
-		return ssz.ErrOffset
+		return fmt.Errorf("attestations %w", ssz.ErrOffset)
 	}
 
 	// Field (8) 'SyncAggregate'
@@ -1021,7 +1023,7 @@ func (b *BeaconBlockBodyBellatrix) UnmarshalSSZ(buf []byte) error {
 
 	// Offset (9) 'ExecutionPayload'
 	if o9 = ssz.ReadOffset(buf[380:384]); o9 > size || o7 > o9 {
-		return ssz.ErrOffset
+		return fmt.Errorf("attestations %w", ssz.ErrOffset)
 	}
 
 	// Field (3) 'ProposerSlashings'

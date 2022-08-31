@@ -163,7 +163,8 @@ func (cf *VersionedUnmarshaler) UnmarshalBeaconBlock(marshaled []byte) (interfac
 	}
 	err = blk.UnmarshalSSZ(marshaled)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal SignedBeaconBlock in UnmarshalSSZ")
+		forkName := version.String(cf.Fork)
+		return nil, errors.Wrap(err, fmt.Sprintf("failed to unmarshal SignedBeaconBlock in UnmarshalSSZ for fork version=%s", forkName))
 	}
 	return blocks.NewSignedBeaconBlock(blk)
 }
