@@ -13,11 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	gethRPC "github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
@@ -107,14 +105,6 @@ type Chain interface {
 	POWBlockFetcher
 }
 
-// RPCDataFetcher defines a subset of methods conformed to by ETH1.0 RPC clients for
-// fetching eth1 data from the clients.
-type RPCDataFetcher interface {
-	Close()
-	HeaderByNumber(ctx context.Context, number *big.Int) (*gethTypes.Header, error)
-	HeaderByHash(ctx context.Context, hash common.Hash) (*gethTypes.Header, error)
-}
-
 // RPCClient defines the rpc methods required to interact with the eth1 node.
 type RPCClient interface {
 	Close()
@@ -152,7 +142,6 @@ type Service struct {
 	cancel                  context.CancelFunc
 	eth1HeadTicker          *time.Ticker
 	httpLogger              bind.ContractFilterer
-	eth1DataFetcher         RPCDataFetcher
 	rpcClient               RPCClient
 	headerCache             *headerCache // cache to store block hash/block height.
 	latestEth1Data          *ethpb.LatestETH1Data
@@ -253,41 +242,6 @@ func (s *Service) Start() {
 	go s.run(s.ctx.Done())
 }
 
-func toBlockNumArg(number *big.Int) string {
-	if number == nil {
-		return "latest"
-	}
-	pending := big.NewInt(-1)
-	if number.Cmp(pending) == 0 {
-		return "pending"
-	}
-	return hexutil.EncodeBig(number)
-}
-
-func (s *Service) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
-	if s.rpcClient == nil {
-		return nil, errors.New("nil rpcClient")
-	}
-	var head *types.Header
-	err := s.rpcClient.CallContext(ctx, &head, "eth_getBlockByNumber", toBlockNumArg(number), false)
-	if err == nil && head == nil {
-		err = ethereum.NotFound
-	}
-	return head, err
-}
-
-func (s *Service) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
-	if s.rpcClient == nil {
-		return nil, errors.New("nil rpcClient")
-	}
-	var head *types.Header
-	err := s.rpcClient.CallContext(ctx, &head, "eth_getBlockByHash", hash, false)
-	if err == nil && head == nil {
-		err = ethereum.NotFound
-	}
-	return head, err
-}
-
 // Stop the web3 service's main event loop and associated goroutines.
 func (s *Service) Stop() error {
 	if s.cancel != nil {
@@ -295,9 +249,6 @@ func (s *Service) Stop() error {
 	}
 	if s.rpcClient != nil {
 		s.rpcClient.Close()
-	}
-	if s.eth1DataFetcher != nil {
-		s.eth1DataFetcher.Close()
 	}
 	return nil
 }
@@ -476,36 +427,35 @@ func (s *Service) initDepositCaches(ctx context.Context, ctrs []*ethpb.DepositCo
 
 // processBlockHeader adds a newly observed eth1 block to the block cache and
 // updates the latest blockHeight, blockHash, and blockTime properties of the service.
-func (s *Service) processBlockHeader(header *types.Header) {
+func (s *Service) processBlockHeader(header *types.HeaderInfo) {
 	defer safelyHandlePanic()
 	blockNumberGauge.Set(float64(header.Number.Int64()))
 	s.latestEth1DataLock.Lock()
 	s.latestEth1Data.BlockHeight = header.Number.Uint64()
-	s.latestEth1Data.BlockHash = header.Hash().Bytes()
+	s.latestEth1Data.BlockHash = header.Hash.Bytes()
 	s.latestEth1Data.BlockTime = header.Time
 	s.latestEth1DataLock.Unlock()
 	log.WithFields(logrus.Fields{
 		"blockNumber": s.latestEth1Data.BlockHeight,
 		"blockHash":   hexutil.Encode(s.latestEth1Data.BlockHash),
-		"difficulty":  header.Difficulty.String(),
 	}).Debug("Latest eth1 chain event")
 }
 
 // batchRequestHeaders requests the block range specified in the arguments. Instead of requesting
 // each block in one call, it batches all requests into a single rpc call.
-func (s *Service) batchRequestHeaders(startBlock, endBlock uint64) ([]*types.Header, error) {
+func (s *Service) batchRequestHeaders(startBlock, endBlock uint64) ([]*types.HeaderInfo, error) {
 	if startBlock > endBlock {
 		return nil, fmt.Errorf("start block height %d cannot be > end block height %d", startBlock, endBlock)
 	}
 	requestRange := (endBlock - startBlock) + 1
 	elems := make([]gethRPC.BatchElem, 0, requestRange)
-	headers := make([]*types.Header, 0, requestRange)
+	headers := make([]*types.HeaderInfo, 0, requestRange)
 	errs := make([]error, 0, requestRange)
 	if requestRange == 0 {
 		return headers, nil
 	}
 	for i := startBlock; i <= endBlock; i++ {
-		header := &types.Header{}
+		header := &types.HeaderInfo{}
 		err := error(nil)
 		elems = append(elems, gethRPC.BatchElem{
 			Method: "eth_getBlockByNumber",
@@ -610,7 +560,7 @@ func (s *Service) initPOWService() {
 
 			s.latestEth1DataLock.Lock()
 			s.latestEth1Data.BlockHeight = header.Number.Uint64()
-			s.latestEth1Data.BlockHash = header.Hash().Bytes()
+			s.latestEth1Data.BlockHash = header.Hash.Bytes()
 			s.latestEth1Data.BlockTime = header.Time
 			s.latestEth1DataLock.Unlock()
 

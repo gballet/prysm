@@ -1,7 +1,7 @@
 package types
 
 import (
-	"encoding/json"
+	"math"
 	"math/big"
 	"reflect"
 	"testing"
@@ -9,80 +9,62 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func Test_headerToHeaderInfo(t *testing.T) {
-	type args struct {
-		hdr *Header
-	}
+func TestRoundtrip_HeaderInfo(t *testing.T) {
 	tests := []struct {
 		name    string
-		args    args
-		want    *HeaderInfo
+		hInfo   HeaderInfo
 		wantErr bool
 	}{
 		{
-			name: "OK",
-			args: args{hdr: &Header{
-				Number: big.NewInt(500),
-				Time:   2345,
-			}},
-			want: &HeaderInfo{
-				Number: big.NewInt(500),
+			name: "normal header object",
+			hInfo: HeaderInfo{
+				Number: big.NewInt(1000),
 				Hash:   common.Hash{239, 10, 13, 71, 156, 192, 23, 93, 73, 154, 255, 209, 163, 204, 129, 12, 179, 183, 65, 70, 205, 200, 57, 12, 17, 211, 209, 4, 104, 133, 73, 86},
-				Time:   2345,
+				Time:   1000,
 			},
+			wantErr: false,
 		},
 		{
-			name: "nil number",
-			args: args{hdr: &Header{
-				Time: 2345,
-			}},
+			name: "large header object",
+			hInfo: HeaderInfo{
+				Number: big.NewInt(10023982389238920),
+				Hash:   common.Hash{192, 19, 18, 71, 156, 239, 23, 93, 73, 17, 255, 209, 163, 204, 129, 12, 179, 129, 65, 70, 209, 200, 57, 12, 17, 211, 209, 4, 104, 57, 73, 86},
+				Time:   math.MaxUint64,
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing number",
+			hInfo: HeaderInfo{
+				Hash: common.Hash{192, 19, 18, 71, 156, 239, 23, 93, 73, 17, 255, 209, 163, 204, 129, 12, 179, 129, 65, 70, 209, 200, 57, 12, 17, 211, 209, 4, 104, 57, 73, 86},
+				Time: math.MaxUint64,
+			},
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := HeaderToHeaderInfo(tt.args.hdr)
+			h := &HeaderInfo{
+				Number: tt.hInfo.Number,
+				Hash:   tt.hInfo.Hash,
+				Time:   tt.hInfo.Time,
+			}
+			recv, err := h.MarshalJSON()
+			if err != nil {
+				t.Fatal(err)
+			}
+			newH := &HeaderInfo{}
+			err = newH.UnmarshalJSON(recv)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("headerToHeaderInfo() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("UnmarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("headerToHeaderInfo() got = %v, want %v", got, tt.want)
+			if tt.wantErr {
+				return
+			}
+			if !reflect.DeepEqual(*newH, tt.hInfo) {
+				t.Errorf("MarshalJSON() got = %v, want %v", newH, tt.hInfo)
 			}
 		})
-	}
-}
-
-func Test_headerJsonDecoding(t *testing.T) {
-	for _, test := range []struct {
-		name      string
-		blockJSON string
-		hash      common.Hash
-	}{
-		{
-			name:      "Mainnet block",
-			blockJSON: `{"baseFeePerGas":"0x9b029df50","difficulty":"0x2dd441ee5e654b","extraData":"0x466c6578706f6f6c2f53312f484b202d2053c3a36f205061756c6f","gasLimit":"0x1cb3486","gasUsed":"0x30c0c8","hash":"0xb41ae2673ac6e564d8d097ce8204ea4fc6b60bc536f9aeb8ca614b0a8643bd85","logsBloom":"0x000010200000001202080020200110000040c0000800000001040000c400000010000000088020002000108004001100220000110a01a08001000000002400000044000000800008098000084414004000200045080410003100000080111008020000000a200000000084030010080e0000800040422000d00040100448080800000000008001000408080000420000040000014100000000000008001181a41289306202802010000800a040000000880041004402011001000808000080840000130282020002202300000010000010003009002024c90004010208046010003020090000000100000200000008c008000011000001400088080040006101","miner":"0x7f101fe45e6649a6fb8f3f8b43ed03d353f2b90c","mixHash":"0x7d2b0ed31f461de545815f4f8349bd8ac69782859ba678bdcce61fc5c2b5841a","nonce":"0x1e80bb0a7239e363","number":"0xd7efb8","parentHash":"0x9d678b52c55979bf2ca2a8c5d1f09ccb174a34112cc6daff55559411f3271eb6","receiptsRoot":"0x46f22f73d192de3a2050c10f751f926ace5c803b05894ff4b77d71abde532711","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x2001","stateRoot":"0xc503b2cb20da50dc5c7eb0fd7235001501c40214997b139f9698a5ae69b13519","timestamp":"0x61ff9100","totalDifficulty":"0x8a315c52baac72b1870","transactionsRoot":"0x11a57b1ab6f867d074d17812c5203eae650d12589bc91882162f107c0a8adb9d","uncles":[]}`,
-			hash:      common.HexToHash("0xb41ae2673ac6e564d8d097ce8204ea4fc6b60bc536f9aeb8ca614b0a8643bd85"),
-		},
-		{
-			name:      "Gnosis Chain block",
-			blockJSON: `{"author":"0x657e832b1a67cdef9e117afd2f419387259fa93e","difficulty":"0xfffffffffffffffffffffffffffffffe","extraData":"0x4e65746865726d696e64","gasLimit":"0x1c9c380","gasUsed":"0x45a37","hash":"0x7c92d02b59d7785edc7b581c71f929905bac25aedb7af9fdb538ba010922f2ed","logsBloom":"0x00000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000080000000000008000000000000000000000000000000000000000000200000800000000000000000000800000000000010000000000010000000200000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0x657e832b1a67cdef9e117afd2f419387259fa93e","number":"0x138bf62","parentHash":"0xa30c413ce9eb6dccf31dfd0ee2f87533b19cb112a2e1008ad9c90b0a0dbda974","receiptsRoot":"0xf218da366ed411ce1e8e11648bb3869c00f1d5b15dc481304cdcfaa11b729cea","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","signature":"0x135a1bba6ffd9450ba19aa68d0d02777db64d7d66d1e76a00690d4978103760671f2e3fee9b4b4274aaa77483845f4437bc500b9c455a45efcae422efe90ecbe00","size":"0x458","stateRoot":"0xc7595f12f866cf607872ae41302e0c9d3e4d0b912be01b73d5c90ce793f04ab2","step":328827780,"totalDifficulty":"0x138bf61ffffffffffffffffffffffffeb2fbd1a","timestamp":"0x61ff9194","baseFeePerGas":"0x7","transactionsRoot":"0x15031ee0b9dc0fe9488e0db1366583b96acec241e73ca07a0213dee25f122054","uncles":[]}`,
-			hash:      common.HexToHash("0x7c92d02b59d7785edc7b581c71f929905bac25aedb7af9fdb538ba010922f2ed"),
-		},
-		{
-			name:      "Gnosis OE block",
-			blockJSON: `{"author":"0x1438087186fdbfd4c256fa2df446921e30e54df8","baseFeePerGas":"0x7","difficulty":"0xfffffffffffffffffffffffffffffffe","extraData":"0xdb830303028c4f70656e457468657265756d86312e34382e30826c69","gasLimit":"0x1c9c380","gasUsed":"0x38c144","hash":"0x308a804389b0aee299c5147f26e002af0629c9f26465c420551d4869907cb4cf","logsBloom":"0x00040000000000000000000000800000000000004000000000000000000000000000000000002000000000010000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000400000020400000000000000000800000000000000000000000010000000000000000000000000000000000000000000000000000000000800000000100000000008000000000000000000040000000000000000000000000100004000000000000002010000000000000000000020000000001000800000000000000020000000000400200000000000000000004000000000100000000000000000000000","miner":"0x1438087186fdbfd4c256fa2df446921e30e54df8","number":"0x14212c1","parentHash":"0x5a8060feb931a8e792020f747c71f85e9a6ce502b378eab59323b641451e32c1","receiptsRoot":"0x0a5c6f1373e8c929b75a6cffa07911368934efa0880f69c8eb7062288e1156ad","sealFields":["0x8413a315c9","0xb8412fd0d6ceaf0286e2ee844fc151a1fbb9a809b19ae97b0d9f46907c9bbe7385424887e5ad9ac648781cc3a1c973f2a7d94a3e8445ab18f4cee9c1b8719a514cd400"],"sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","signature":"2fd0d6ceaf0286e2ee844fc151a1fbb9a809b19ae97b0d9f46907c9bbe7385424887e5ad9ac648781cc3a1c973f2a7d94a3e8445ab18f4cee9c1b8719a514cd400","size":"0xedb","stateRoot":"0x4df91a90bffeb47e54623cbc547b92690cd848cc803578fec749ad054c141a4d","step":"329455049","timestamp":"0x622f6ced","totalDifficulty":"0x14212c0ffffffffffffffffffffffffeb1cd776","transactions":["0x20b9d511fefe644a09b53a46fb094910a30115a1b4e8d294acdc9a502074ed0f","0x26c72b0b1461c832d680e3df215332a56078d6dc71cf4e7a44e354800228523c","0x689fe1d5e4791dd3e424d7f45e139450614e92c47de9f423df625cb88cc0d0f2","0xa2fb6082cc5eb2db9f1647d67cbc9535bf59fe9a2ae2ff74a1d9312b39acec94","0x40fd7ff2d5cec92a5e6c8e96fd14dd8cc8685d888590f719ee937d0e91c1f68f","0x2cbc3dac193084fbae553aecdc4bc067194144c499a1b18915cae168f83b7dcd"],"transactionsRoot":"0x550cef79254830802f196bf8fb1a4031c8a99fe10e9eb12eb3fdcde33c6e6582","uncles":[]}`,
-			hash:      common.HexToHash("0x308a804389b0aee299c5147f26e002af0629c9f26465c420551d4869907cb4cf"),
-		},
-	} {
-		t.Logf("testing %s\n", test.name)
-		header := new(Header)
-		err := json.Unmarshal([]byte(test.blockJSON), header)
-		if err != nil {
-			t.Errorf("can't decode block: %s", err)
-		}
-		if header.Hash() != test.hash {
-			t.Errorf("incorrect hash")
-		}
 	}
 }

@@ -12,9 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 	"github.com/prysmaticlabs/prysm/async/event"
 	"github.com/prysmaticlabs/prysm/beacon-chain/execution/types"
 	"github.com/prysmaticlabs/prysm/beacon-chain/state"
@@ -142,47 +142,94 @@ func (m *Chain) ETH1ConnectionErrors() []error {
 
 // RPCClient defines the mock rpc client.
 type RPCClient struct {
-	Backend *backends.SimulatedBackend
+	Backend     *backends.SimulatedBackend
+	BlockNumMap map[uint64]*types.HeaderInfo
 }
 
 func (*RPCClient) Close() {}
 
 // CallContext --
-func (r *RPCClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	if r.Backend == nil {
+func (r *RPCClient) CallContext(ctx context.Context, obj interface{}, methodName string, args ...interface{}) error {
+	if r.BlockNumMap != nil && methodName == "eth_getBlockByNumber" {
+		val, ok := args[0].(string)
+		if !ok {
+			return errors.Errorf("wrong argument type provided: %T", args[0])
+		}
+		num, err := hexutil.DecodeBig(val)
+		if err != nil {
+			return err
+		}
+		b := r.BlockNumMap[num.Uint64()]
+		assertedObj, ok := obj.(**types.HeaderInfo)
+		if !ok {
+			return errors.Errorf("wrong argument type provided: %T", obj)
+		}
+		*assertedObj = b
 		return nil
 	}
-
-	var h *gethTypes.Header
-	var err error
-	switch method {
+	if r.Backend == nil && methodName == "eth_getBlockByNumber" {
+		h := &types.HeaderInfo{
+			Number: big.NewInt(15),
+			Time:   150,
+		}
+		assertedObj, ok := obj.(**types.HeaderInfo)
+		if !ok {
+			return errors.Errorf("wrong argument type provided: %T", obj)
+		}
+		*assertedObj = &types.HeaderInfo{
+			Hash:   h.Hash,
+			Number: h.Number,
+			Time:   h.Time,
+		}
+		return nil
+	}
+	switch methodName {
 	case "eth_getBlockByNumber":
+		val, ok := args[0].(string)
+		if !ok {
+			return errors.Errorf("wrong argument type provided: %T", args[0])
+		}
 		var num *big.Int
-		bn := args[0].(string)
-		if bn != "latest" && bn != "pending" {
-			num, err = hexutil.DecodeBig(bn)
+		var err error
+		if val != "latest" {
+			num, err = hexutil.DecodeBig(val)
 			if err != nil {
 				return err
 			}
 		}
-		h, err = r.Backend.HeaderByNumber(context.Background(), num)
+		h, err := r.Backend.HeaderByNumber(ctx, num)
 		if err != nil {
 			return err
+		}
+		assertedObj, ok := obj.(**types.HeaderInfo)
+		if !ok {
+			return errors.Errorf("wrong argument type provided: %T", obj)
+		}
+		*assertedObj = &types.HeaderInfo{
+			Hash:   h.Hash(),
+			Number: h.Number,
+			Time:   h.Time,
 		}
 	case "eth_getBlockByHash":
-		h, err = r.Backend.HeaderByHash(context.Background(), args[0].(common.Hash))
+		val, ok := args[0].(common.Hash)
+		if !ok {
+			return errors.Errorf("wrong argument type provided: %T", args[0])
+		}
+		h, err := r.Backend.HeaderByHash(ctx, val)
 		if err != nil {
 			return err
 		}
-	default:
-		return fmt.Errorf("unsupported method %q", method)
+		assertedObj, ok := obj.(**types.HeaderInfo)
+		if !ok {
+			return errors.Errorf("wrong argument type provided: %T", obj)
+		}
+		*assertedObj = &types.HeaderInfo{
+			Hash:   h.Hash(),
+			Number: h.Number,
+			Time:   h.Time,
+		}
 	}
-
-	_, reader, err := rlp.EncodeToReader(h)
-	if err != nil {
-		return err
-	}
-	return rlp.Decode(reader, result.(**types.Header))
+	return nil
 }
 
 // BatchCall --
@@ -204,7 +251,7 @@ func (r *RPCClient) BatchCall(b []rpc.BatchElem) error {
 		if err != nil {
 			return err
 		}
-		err = rlp.Decode(reader, e.Result.(*types.Header))
+		err = rlp.Decode(reader, e.Result.(*types.HeaderInfo))
 		if err != nil {
 			return err
 		}
