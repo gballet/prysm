@@ -38,6 +38,7 @@ go_library(
         "types.go",
     ] + select({
         "//config:mainnet": ["beacon_state_mainnet.go"],
+        "//config:gnosis": ["beacon_state_gnosis.go"],
         "//config:minimal": ["beacon_state_minimal.go"],
     }),
     importpath = "github.com/prysmaticlabs/prysm/v3/beacon-chain/state/state-native",

@@ -11,3 +11,10 @@ config_setting(
         "//proto:network": "minimal",
     },
 )
+
+config_setting(
+    name = "gnosis",
+    flag_values = {
+        "//proto:network": "gnosis",
+    },
+)

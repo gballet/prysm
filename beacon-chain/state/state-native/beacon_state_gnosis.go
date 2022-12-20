@@ -1,4 +1,4 @@
-//go:build !minimal && !gnosis
+//go:build gnosis
 
 package state_native
 

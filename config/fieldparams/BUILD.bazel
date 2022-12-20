@@ -5,6 +5,7 @@ go_library(
     srcs = select({
         "//config:mainnet": ["mainnet.go"],
         "//config:minimal": ["minimal.go"],
+        "//config:gnosis": ["gnosis.go"],
     }),
     importpath = "github.com/prysmaticlabs/prysm/v3/config/fieldparams",
     visibility = ["//visibility:public"],
@@ -16,6 +17,7 @@ go_test(
         "common_test.go",
         "mainnet_test.go",
         "minimal_test.go",
+        "gnosis_test.go",
     ],
     deps = [
         ":go_default_library",
